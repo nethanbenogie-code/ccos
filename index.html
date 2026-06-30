@@ -39,6 +39,7 @@
   .abtn.primary{background:var(--wine);color:#fff;border-color:var(--wine)}
   .abtn.primary:hover{background:var(--plum)}
   .abtn.ghost{color:var(--muted)}
+  .stat{padding:9px 6px;font-size:13px;color:var(--plum);font-weight:600;align-self:center;white-space:nowrap}
 
   .controls{max-width:1100px;margin:20px auto 0;padding:0 18px;display:flex;gap:10px;
     flex-wrap:wrap;align-items:center;justify-content:center}
@@ -108,6 +109,8 @@
   .newcat{display:none;margin-top:8px}.newcat.show{display:block}
   footer{text-align:center;padding:26px 18px 40px;color:var(--muted);font-size:12.5px}
   footer a{color:var(--plum)}
+  .about{max-width:660px;margin:24px auto 0;padding:0 22px;text-align:center}
+  .about p{margin:0;color:var(--ink);font-size:15px;line-height:1.65;white-space:pre-line}
   .featured{max-width:1120px;margin:26px auto 0;padding:0 18px;text-align:center}
   .featured-title{font-family:var(--serif);font-weight:400;font-size:20px;color:var(--wine);
     margin:0 0 14px;position:relative}
@@ -134,13 +137,19 @@
   <button class="abtn primary" id="addBtn">+ Add product</button>
   <button class="abtn" id="featBtn">Featured posts</button>
   <button class="abtn" id="mmBtn">Messenger link</button>
+  <button class="abtn" id="aboutBtn">About</button>
   <button class="abtn" id="syncBtn">Sync from published</button>
   <button class="abtn" id="exportBtn">Export catalog</button>
   <button class="abtn" id="importBtn">Import catalog</button>
   <button class="abtn ghost" id="pwBtn">Change password</button>
   <button class="abtn ghost" id="lockNow">Lock</button>
+  <span class="stat" id="visits"></span>
   <input type="file" id="importFile" accept="application/json" hidden>
 </div>
+
+<section class="about" id="about" hidden>
+  <p id="aboutText"></p>
+</section>
 
 <div id="fb-root"></div>
 <section class="featured" id="featured" hidden>
@@ -242,6 +251,21 @@
   </div>
 </div>
 
+<!-- About modal -->
+<div class="overlay" id="aboutOverlay">
+  <div class="modal">
+    <h2>About the shop</h2>
+    <p class="sub">A short description shown near the top of your shop. Leave blank to hide it.</p>
+    <label>Description</label>
+    <textarea id="aboutInput" rows="5" placeholder="Tell customers what Cheche Cabalida Online Shop is about…"></textarea>
+    <p class="sub" style="margin:14px 0 0">Publishes with your catalog when you <b>Export</b>.</p>
+    <div class="modal-actions">
+      <button class="cancel" id="aboutCancel">Cancel</button>
+      <button class="save" id="aboutSave">Save</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ===================================================================
    CONFIG
@@ -250,6 +274,10 @@ const CONFIG = {
   MESSENGER: "chechecabalidaonlineshop", // m.me/<this> — confirmed page username
   DEFAULT_PASSWORD: "cheche2025",       // first-run password — change it in the panel!
   CATALOG_URL: "cheche-catalog.json",   // committed file every visitor loads on startup
+  GOATCOUNTER: "geoneo",                // GoatCounter code (CODE.goatcounter.com). "" to disable.
+
+  // Short shop description (editable later from the admin "About" panel).
+  ABOUT: "Cheche Cabalida Online Shop offers handpicked home accessories and beauty finds for every Filipino home. Based in Iligan City, we make ordering easy — just message us on Messenger. Salamat for supporting a local small business!",
 
   // Facebook posts to feature at the top of the shop (shows up to 3 across).
   // Accepts a PUBLIC post URL (resizes nicely on phones) OR a full <iframe…> embed code.
@@ -268,6 +296,7 @@ const LS_PRODUCTS = "cheche_products_v1";
 const LS_PWHASH   = "cheche_pwhash_v1";
 const LS_FEATURED = "cheche_featured_v1";
 const LS_MESSENGER = "cheche_messenger_v1";
+const LS_ABOUT     = "cheche_about_v1";
 
 /* Seed shown on first ever load (no saved data yet). */
 const SEED = [
@@ -285,6 +314,8 @@ let featuredDraft = [];      // your editable list of featured posts
 let featuredPublished = null; // featured list inside the committed catalog
 let messengerDraft = "";      // your editable Messenger target
 let messengerPublished = null;// Messenger target inside the committed catalog
+let aboutDraft = "";          // your editable shop description
+let aboutPublished = null;    // description inside the committed catalog
 let unlocked = false;
 let activeFilter = "All";
 let editingId = null;
@@ -323,6 +354,23 @@ function loadMessenger(){
   messengerDraft = localStorage.getItem(LS_MESSENGER) || CONFIG.MESSENGER;
 }
 function saveMessenger(){ localStorage.setItem(LS_MESSENGER, messengerDraft); }
+
+function loadAbout(){
+  const v=localStorage.getItem(LS_ABOUT);
+  aboutDraft = (v===null) ? (CONFIG.ABOUT||"") : v;
+}
+function saveAbout(){ localStorage.setItem(LS_ABOUT, aboutDraft); }
+function aboutText(){
+  if(unlocked) return aboutDraft;
+  return (aboutPublished!==null) ? aboutPublished : aboutDraft;
+}
+function renderAbout(){
+  const t=(aboutText()||"").trim();
+  const sec=$("about");
+  if(!t){ sec.hidden=true; return; }
+  sec.hidden=false;
+  $("aboutText").textContent=t;   // textContent keeps it safe; CSS preserves line breaks
+}
 
 // Accept a username, an m.me link, or a facebook page link → return a clean handle.
 function normalizeMessenger(input){
@@ -450,7 +498,7 @@ async function tryUnlock(){
     unlocked=true; closePwModal();
     $("adminbar").classList.add("show");
     $("lockBtn").innerHTML="&#128275;"; $("lockBtn").title="Lock shop";
-    renderGrid();
+    renderGrid(); refreshVisits();
   }else{ $("pwErr").textContent="Wrong password."; }
 }
 function doLock(){
@@ -552,7 +600,7 @@ function removeProduct(id){
    Export / import
    =================================================================== */
 $("exportBtn").onclick=()=>{
-  const payload={ products, featured: featuredDraft, messenger: messengerDraft };
+  const payload={ products, featured: featuredDraft, messenger: messengerDraft, about: aboutDraft };
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob); a.download="cheche-catalog.json"; a.click();
@@ -571,8 +619,9 @@ $("importFile").onchange=e=>{
         products=data.products;
         if(Array.isArray(data.featured)){ featuredDraft=data.featured; saveFeatured(); }
         if(data.messenger){ messengerDraft=data.messenger; saveMessenger(); }
+        if(typeof data.about==="string"){ aboutDraft=data.about; saveAbout(); }
       }else throw 0;
-      save(); activeFilter="All"; renderFilters(); renderGrid(); renderFeatured(); renderFooter();
+      save(); activeFilter="All"; renderFilters(); renderGrid(); renderFeatured(); renderFooter(); renderAbout();
       alert("Imported "+products.length+" products.");
     }catch(err){ alert("That file isn't a valid catalog export."); }
     $("importFile").value="";
@@ -593,7 +642,8 @@ $("syncBtn").onclick=()=>{
   products = published.map(p=>({...p}));
   if(Array.isArray(featuredPublished)){ featuredDraft = featuredPublished.slice(); saveFeatured(); }
   if(messengerPublished){ messengerDraft = messengerPublished; saveMessenger(); }
-  save(); activeFilter="All"; renderFilters(); renderGrid(); renderFeatured(); renderFooter();
+  if(aboutPublished!==null){ aboutDraft = aboutPublished; saveAbout(); }
+  save(); activeFilter="All"; renderFilters(); renderGrid(); renderFeatured(); renderFooter(); renderAbout();
 };
 
 /* ===================================================================
@@ -710,6 +760,47 @@ function saveMessengerLink(){
   renderFooter(); renderGrid();   // update every Order button
 }
 
+/* ----- About admin modal ----- */
+$("aboutBtn").onclick    = openAboutModal;
+$("aboutCancel").onclick = ()=> $("aboutOverlay").classList.remove("show");
+$("aboutSave").onclick   = saveAboutText;
+
+function openAboutModal(){
+  $("aboutInput").value=aboutDraft;
+  $("aboutOverlay").classList.add("show");
+  setTimeout(()=>$("aboutInput").focus(),50);
+}
+function saveAboutText(){
+  aboutDraft=$("aboutInput").value.trim();
+  saveAbout();
+  $("aboutOverlay").classList.remove("show");
+  renderAbout();
+}
+
+/* ===================================================================
+   Visitor analytics (GoatCounter — cookieless)
+   =================================================================== */
+function loadGoatCounter(){
+  if(!CONFIG.GOATCOUNTER) return;
+  const s=document.createElement("script");
+  s.async=true; s.src="https://gc.zgo.at/count.js";
+  s.setAttribute("data-goatcounter", `https://${CONFIG.GOATCOUNTER}.goatcounter.com/count`);
+  document.body.appendChild(s);
+}
+async function refreshVisits(){
+  const el=$("visits"); if(!el) return;
+  if(!CONFIG.GOATCOUNTER){ el.textContent=""; return; }
+  el.textContent="\uD83D\uDC41 loading…";
+  try{
+    const r=await fetch(`https://${CONFIG.GOATCOUNTER}.goatcounter.com/counter/TOTAL.json`,{cache:"no-store"});
+    if(!r.ok) throw 0;
+    const d=await r.json();
+    el.textContent="\uD83D\uDC41 "+(d.count||"0")+" total visits";
+  }catch(e){
+    el.textContent="\uD83D\uDC41 count unavailable — enable “visitor counts” in GoatCounter settings";
+  }
+}
+
 /* ===================================================================
    Init
    =================================================================== */
@@ -724,10 +815,11 @@ async function fetchPublished(){
       published = data.products;
       featuredPublished = Array.isArray(data.featured) ? data.featured : null;
       messengerPublished = data.messenger || null;
+      aboutPublished = (typeof data.about==="string") ? data.about : null;
     }
   }catch(e){
     // File not committed yet, or opened directly via file:// — fall back to the local draft.
-    published = null; featuredPublished = null; messengerPublished = null;
+    published = null; featuredPublished = null; messengerPublished = null; aboutPublished = null;
   }
 }
 
@@ -735,9 +827,11 @@ async function fetchPublished(){
   load();                  // local product draft (this browser), seeded on first run
   loadFeatured();          // local featured draft, seeded from CONFIG on first run
   loadMessenger();         // local Messenger target, seeded from CONFIG on first run
-  await fetchPublished();  // shared catalog + featured + messenger every visitor sees
+  loadAbout();             // local shop description, seeded from CONFIG on first run
+  await fetchPublished();  // shared catalog + featured + messenger + about every visitor sees
   renderFilters(); renderGrid();
-  renderFeatured(); renderFooter();
+  renderFeatured(); renderFooter(); renderAbout();
+  loadGoatCounter();
 })();
 </script>
 </body>
