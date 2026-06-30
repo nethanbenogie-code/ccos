@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cheche Cabalida Online Shop</title>
+<style>
+  :root{
+    --wine:#5a2740;--plum:#7c3a5a;--blush:#f3d9e0;--cream:#fbf6f1;--card:#fff;
+    --gold:#c69a5a;--ink:#2c1a24;--muted:#8a7480;--line:#ecdfe5;
+    --ok:#2e9e6b;--off:#b06a6a;--danger:#c0504a;
+    --serif:Georgia,"Times New Roman",serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --shadow:0 6px 22px rgba(90,39,64,.10);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--sans);line-height:1.5}
+
+  header{background:linear-gradient(135deg,var(--wine),var(--plum));color:#fff;
+    padding:34px 20px 30px;text-align:center;position:relative}
+  .brand{font-family:var(--serif);font-size:clamp(28px,6vw,44px);font-weight:400;
+    letter-spacing:.5px;margin:0}
+  .brand small{display:block;font-size:.38em;letter-spacing:3px;text-transform:uppercase;
+    color:var(--blush);margin-top:6px;font-family:var(--sans)}
+  .tagline{color:var(--blush);margin:8px 0 0;font-size:14px}
+  .lockbtn{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.14);
+    border:1px solid rgba(255,255,255,.25);color:#fff;width:40px;height:40px;
+    border-radius:50%;cursor:pointer;font-size:17px;transition:.15s}
+  .lockbtn:hover{background:rgba(255,255,255,.26)}
+  .count{margin-top:14px;font-size:12.5px;color:var(--blush)}
+
+  /* admin bar */
+  .adminbar{max-width:1100px;margin:18px auto 0;padding:0 18px;display:none;
+    gap:10px;flex-wrap:wrap;justify-content:center}
+  .adminbar.show{display:flex}
+  .abtn{border:1px solid var(--line);background:var(--card);color:var(--plum);
+    padding:9px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+  .abtn:hover{border-color:var(--gold)}
+  .abtn.primary{background:var(--wine);color:#fff;border-color:var(--wine)}
+  .abtn.primary:hover{background:var(--plum)}
+  .abtn.ghost{color:var(--muted)}
+
+  .controls{max-width:1100px;margin:20px auto 0;padding:0 18px;display:flex;gap:10px;
+    flex-wrap:wrap;align-items:center;justify-content:center}
+  .chip{border:1px solid var(--line);background:var(--card);color:var(--plum);
+    padding:8px 16px;border-radius:999px;font-size:13px;cursor:pointer;transition:.15s;font-weight:500}
+  .chip:hover{border-color:var(--gold)}
+  .chip.active{background:var(--wine);color:#fff;border-color:var(--wine)}
+
+  .grid{max-width:1100px;margin:24px auto 60px;padding:0 18px;display:grid;gap:18px;
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    box-shadow:var(--shadow);display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s}
+  .card:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(90,39,64,.16)}
+  .thumb{position:relative;aspect-ratio:1/1;background:var(--blush);overflow:hidden}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .tag{position:absolute;top:8px;left:8px;font-size:10.5px;padding:3px 9px;border-radius:8px;
+    font-weight:700;letter-spacing:.2px;display:inline-flex;align-items:center;gap:4px;
+    box-shadow:0 2px 6px rgba(0,0,0,.18)}
+  .tag.live{background:rgba(46,158,107,.96);color:#fff}
+  .tag.draft{background:rgba(198,154,90,.96);color:#fff}
+  .body{padding:13px 14px 15px;display:flex;flex-direction:column;gap:8px;flex:1}
+  .name{font-family:var(--serif);font-size:16px;margin:0;line-height:1.25}
+  .cat{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);font-weight:600}
+  .price{font-size:17px;font-weight:700;color:var(--wine);margin-top:auto}
+  .price .peso{font-weight:400;font-size:.8em;color:var(--muted)}
+  .order{display:block;text-align:center;text-decoration:none;background:var(--wine);color:#fff;
+    padding:9px;border-radius:9px;font-size:13px;font-weight:600;margin-top:4px;transition:.15s}
+  .order:hover{background:var(--plum)}
+  .cardadmin{display:flex;gap:8px;margin-top:4px}
+  .cardadmin button{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;
+    padding:7px;font-size:12px;cursor:pointer;font-weight:600}
+  .cardadmin .edit{color:var(--plum)}
+  .cardadmin .del{color:var(--danger)}
+
+  .empty{max-width:600px;margin:40px auto;text-align:center;color:var(--muted);
+    background:#fff;border:1px dashed var(--line);border-radius:14px;padding:34px 22px}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(44,26,36,.55);display:none;
+    align-items:center;justify-content:center;padding:18px;z-index:50}
+  .overlay.show{display:flex}
+  .modal{background:#fff;border-radius:18px;width:100%;max-width:440px;padding:24px;
+    box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:92vh;overflow:auto}
+  .modal h2{font-family:var(--serif);margin:0 0 4px;font-weight:400;font-size:22px}
+  .modal p.sub{margin:0 0 18px;color:var(--muted);font-size:13px}
+  label{display:block;font-size:12.5px;font-weight:600;color:var(--ink);margin:14px 0 5px}
+  input,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+    font-size:14px;font-family:var(--sans);background:#fff;color:var(--ink)}
+  input:focus,select:focus{outline:none;border-color:var(--gold)}
+  .row{display:flex;gap:10px}.row>div{flex:1}
+  .preview{width:100%;aspect-ratio:1/1;border-radius:12px;background:var(--blush);object-fit:cover;
+    margin-top:8px;display:none;border:1px solid var(--line)}
+  .preview.show{display:block}
+  .filehint{font-size:11.5px;color:var(--muted);margin-top:5px}
+  .modal-actions{display:flex;gap:10px;margin-top:22px}
+  .modal-actions button{flex:1;padding:11px;border-radius:11px;font-size:14px;font-weight:600;
+    cursor:pointer;border:none}
+  .save{background:var(--wine);color:#fff}.save:hover{background:var(--plum)}
+  .cancel{background:#f0e8ec;color:var(--muted)}
+  .err{color:var(--danger);font-size:12.5px;margin-top:10px;min-height:16px}
+  .newcat{display:none;margin-top:8px}.newcat.show{display:block}
+  footer{text-align:center;padding:26px 18px 40px;color:var(--muted);font-size:12.5px}
+  footer a{color:var(--plum)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <button class="lockbtn" id="lockBtn" title="Manage shop">&#128274;</button>
+  <h1 class="brand">Cheche Cabalida<small>Online Shop</small></h1>
+  <p class="tagline">Home accessories &amp; beauty finds &middot; Iligan City</p>
+  <div class="count" id="count"></div>
+</header>
+
+<div class="adminbar" id="adminbar">
+  <button class="abtn primary" id="addBtn">+ Add product</button>
+  <button class="abtn" id="syncBtn">Sync from published</button>
+  <button class="abtn" id="exportBtn">Export catalog</button>
+  <button class="abtn" id="importBtn">Import catalog</button>
+  <button class="abtn ghost" id="pwBtn">Change password</button>
+  <button class="abtn ghost" id="lockNow">Lock</button>
+  <input type="file" id="importFile" accept="application/json" hidden>
+</div>
+
+<div class="controls" id="controls"></div>
+<div class="grid" id="grid"></div>
+
+<footer>
+  Message us on <a id="fbFooter" href="#" target="_blank" rel="noopener">Facebook / Messenger</a> to order.
+</footer>
+
+<!-- Password modal -->
+<div class="overlay" id="pwOverlay">
+  <div class="modal">
+    <h2 id="pwTitle">Manage shop</h2>
+    <p class="sub" id="pwSub">Enter your password to add or edit products.</p>
+    <label id="pwOldLabel" style="display:none">Current password</label>
+    <input type="password" id="pwOld" style="display:none" autocomplete="off">
+    <label id="pwLabel">Password</label>
+    <input type="password" id="pwInput" autocomplete="off">
+    <label id="pwLabel2" style="display:none">Confirm new password</label>
+    <input type="password" id="pwInput2" style="display:none" autocomplete="off">
+    <div class="err" id="pwErr"></div>
+    <div class="modal-actions">
+      <button class="cancel" id="pwCancel">Cancel</button>
+      <button class="save" id="pwOk">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<!-- Product modal -->
+<div class="overlay" id="prodOverlay">
+  <div class="modal">
+    <h2 id="prodTitle">Add product</h2>
+    <p class="sub">Upload a photo, name it, set a category and price.</p>
+
+    <label>Photo</label>
+    <input type="file" id="pImageFile" accept="image/*">
+    <div class="filehint">Resized automatically to keep the shop fast.</div>
+    <img class="preview" id="pPreview" alt="preview">
+
+    <label>Name</label>
+    <input type="text" id="pName" placeholder="e.g. Rattan Woven Basket">
+
+    <div class="row">
+      <div>
+        <label>Category</label>
+        <select id="pCategory"></select>
+        <input class="newcat" type="text" id="pNewCat" placeholder="New category name">
+      </div>
+      <div>
+        <label>Price (₱)</label>
+        <input type="number" id="pPrice" min="0" step="1" placeholder="349">
+      </div>
+    </div>
+
+    <div class="err" id="prodErr"></div>
+    <div class="modal-actions">
+      <button class="cancel" id="prodCancel">Cancel</button>
+      <button class="save" id="prodSave">Save product</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================================================================
+   CONFIG
+   =================================================================== */
+const CONFIG = {
+  MESSENGER: "chechecabalida",          // your m.me/USERNAME
+  DEFAULT_PASSWORD: "cheche2025",       // first-run password — change it in the panel!
+  CATALOG_URL: "cheche-catalog.json",   // committed file every visitor loads on startup
+  MAX_IMAGE_PX: 900,                    // photos downscaled to this longest edge
+  JPEG_QUALITY: 0.82
+};
+
+const LS_PRODUCTS = "cheche_products_v1";
+const LS_PWHASH   = "cheche_pwhash_v1";
+
+/* Seed shown on first ever load (no saved data yet). */
+const SEED = [
+  { id:1, name:"Rattan Woven Basket",    category:"Home",   price:349, image:"" },
+  { id:2, name:"Ceramic Scent Diffuser", category:"Home",   price:599, image:"" },
+  { id:3, name:"Hydrating Lip Tint",     category:"Beauty", price:199, image:"" }
+];
+
+/* ===================================================================
+   State + helpers
+   =================================================================== */
+let products = [];       // your local working draft (saved in this browser)
+let published = null;    // the committed catalog every visitor sees
+let unlocked = false;
+let activeFilter = "All";
+let editingId = null;
+let pendingImage = "";   // data URI of the photo being added/edited
+
+const $ = id => document.getElementById(id);
+document.getElementById("fbFooter").href = "https://m.me/" + CONFIG.MESSENGER;
+
+// What the grid shows: your draft while unlocked, the published catalog otherwise.
+function current(){ return unlocked ? products : (published || products); }
+
+async function sha256(str){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+function load(){
+  try{ products = JSON.parse(localStorage.getItem(LS_PRODUCTS)) || null; }catch(e){ products=null; }
+  if(!products){ products = SEED.slice(); save(); }
+}
+function save(){ localStorage.setItem(LS_PRODUCTS, JSON.stringify(products)); }
+function placeholder(){
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+   `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'>
+      <rect width='400' height='400' fill='#f3d9e0'/>
+      <text x='200' y='215' font-size='60' text-anchor='middle' fill='#b58aa0'>&#128247;</text>
+    </svg>`);
+}
+
+/* ===================================================================
+   Render
+   =================================================================== */
+function categories(){ return Array.from(new Set(current().map(p=>p.category).filter(Boolean))); }
+
+// A product is "live worldwide" when it matches the published catalog exactly.
+function publishedById(id){ return (published||[]).find(x=>x.id===id); }
+function isLive(p){
+  const pub=publishedById(p.id);
+  if(!pub) return false;
+  return pub.name===p.name && pub.category===p.category &&
+         Number(pub.price)===Number(p.price) && (pub.image||"")===(p.image||"");
+}
+
+function renderFilters(){
+  const cats = ["All", ...categories()];
+  $("controls").innerHTML="";
+  cats.forEach(c=>{
+    const b=document.createElement("button");
+    b.className="chip"+(c===activeFilter?" active":"");
+    b.textContent=c;
+    b.onclick=()=>{ activeFilter=c; renderFilters(); renderGrid(); };
+    $("controls").appendChild(b);
+  });
+}
+
+function renderGrid(){
+  const src = current();
+  const list = activeFilter==="All" ? src : src.filter(p=>p.category===activeFilter);
+  if(unlocked){
+    const live = products.filter(isLive).length;
+    const pend = products.length - live;
+    $("count").innerHTML = `${products.length} items &middot; &#127758; ${live} live worldwide` +
+                           (pend?` &middot; &#9998; ${pend} unpublished`:"");
+  }else{
+    $("count").textContent = src.length + (src.length===1?" item":" items");
+  }
+  const grid=$("grid"); grid.innerHTML="";
+
+  if(list.length===0){
+    grid.innerHTML = `<div class="empty">No products yet.${unlocked?" Tap <b>+ Add product</b> to start.":""}</div>`;
+    return;
+  }
+  list.forEach(p=>{
+    const order="https://m.me/"+CONFIG.MESSENGER+"?text="+
+      encodeURIComponent("Hi! I'm interested in: "+p.name);
+    const card=document.createElement("div");
+    card.className="card";
+    const tag = unlocked
+      ? (isLive(p) ? `<span class="tag live">&#127758; Live worldwide</span>`
+                   : `<span class="tag draft">&#9998; Not published</span>`)
+      : "";
+    card.innerHTML=
+      `<div class="thumb">${tag}<img src="${p.image||placeholder()}" alt="${esc(p.name)}"
+          onerror="this.src='${placeholder()}'"></div>
+       <div class="body">
+         <span class="cat">${esc(p.category||"")}</span>
+         <h3 class="name">${esc(p.name)}</h3>
+         <div class="price"><span class="peso">₱</span>${Number(p.price||0).toLocaleString()}</div>
+         <a class="order" href="${order}" target="_blank" rel="noopener">Order on Messenger</a>
+         ${unlocked?`<div class="cardadmin">
+            <button class="edit" data-edit="${p.id}">Edit</button>
+            <button class="del" data-del="${p.id}">Delete</button></div>`:""}
+       </div>`;
+    grid.appendChild(card);
+  });
+  if(unlocked){
+    grid.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openProduct(+b.dataset.edit));
+    grid.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>removeProduct(+b.dataset.del));
+  }
+}
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+/* ===================================================================
+   Password gate
+   =================================================================== */
+$("lockBtn").onclick = ()=> unlocked ? doLock() : openPwModal("unlock");
+$("lockNow").onclick = doLock;
+$("pwBtn").onclick   = ()=> openPwModal("change");
+$("pwCancel").onclick= closePwModal;
+
+function openPwModal(mode){
+  $("pwErr").textContent="";
+  $("pwOld").value=$("pwInput").value=$("pwInput2").value="";
+  const change = mode==="change";
+  $("pwTitle").textContent = change?"Change password":"Manage shop";
+  $("pwSub").textContent   = change?"Set a new password for editing.":"Enter your password to add or edit products.";
+  $("pwOldLabel").style.display=$("pwOld").style.display = change?"block":"none";
+  $("pwLabel2").style.display=$("pwInput2").style.display = change?"block":"none";
+  $("pwLabel").textContent = change?"New password":"Password";
+  $("pwOk").textContent = change?"Save":"Unlock";
+  $("pwOk").onclick = change?changePassword:tryUnlock;
+  $("pwOverlay").classList.add("show");
+  setTimeout(()=>(change?$("pwOld"):$("pwInput")).focus(),50);
+}
+function closePwModal(){ $("pwOverlay").classList.remove("show"); }
+
+async function storedHash(){
+  let h = localStorage.getItem(LS_PWHASH);
+  if(!h){ h = await sha256(CONFIG.DEFAULT_PASSWORD); }  // fall back to default until changed
+  return h;
+}
+async function tryUnlock(){
+  const h = await sha256($("pwInput").value);
+  if(h === await storedHash()){
+    unlocked=true; closePwModal();
+    $("adminbar").classList.add("show");
+    $("lockBtn").innerHTML="&#128275;"; $("lockBtn").title="Lock shop";
+    renderGrid();
+  }else{ $("pwErr").textContent="Wrong password."; }
+}
+function doLock(){
+  unlocked=false;
+  $("adminbar").classList.remove("show");
+  $("lockBtn").innerHTML="&#128274;"; $("lockBtn").title="Manage shop";
+  renderGrid();
+}
+async function changePassword(){
+  const ok = await sha256($("pwOld").value) === await storedHash();
+  if(!ok){ $("pwErr").textContent="Current password is wrong."; return; }
+  const np=$("pwInput").value, np2=$("pwInput2").value;
+  if(np.length<4){ $("pwErr").textContent="Use at least 4 characters."; return; }
+  if(np!==np2){ $("pwErr").textContent="New passwords don't match."; return; }
+  localStorage.setItem(LS_PWHASH, await sha256(np));
+  closePwModal();
+}
+
+/* ===================================================================
+   Add / edit product
+   =================================================================== */
+$("addBtn").onclick   = ()=> openProduct(null);
+$("prodCancel").onclick = ()=> $("prodOverlay").classList.remove("show");
+$("pImageFile").onchange = handleImageFile;
+$("pCategory").onchange = ()=>{
+  $("pNewCat").classList.toggle("show", $("pCategory").value==="__new__");
+};
+$("prodSave").onclick = saveProduct;
+
+function openProduct(id){
+  editingId=id; pendingImage=""; $("prodErr").textContent="";
+  $("pImageFile").value=""; $("pPreview").classList.remove("show");
+  const cats=categories();
+  $("pCategory").innerHTML =
+    cats.map(c=>`<option>${esc(c)}</option>`).join("") +
+    `<option value="__new__">+ New category…</option>`;
+  $("pNewCat").value=""; $("pNewCat").classList.remove("show");
+
+  if(id){
+    const p=products.find(x=>x.id===id);
+    $("prodTitle").textContent="Edit product";
+    $("pName").value=p.name; $("pPrice").value=p.price;
+    if(p.category && cats.includes(p.category)) $("pCategory").value=p.category;
+    if(p.image){ pendingImage=p.image; $("pPreview").src=p.image; $("pPreview").classList.add("show"); }
+  }else{
+    $("prodTitle").textContent="Add product";
+    $("pName").value=""; $("pPrice").value="";
+  }
+  $("prodOverlay").classList.add("show");
+}
+
+function handleImageFile(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=CONFIG.MAX_IMAGE_PX;
+      let {width:w,height:h}=img;
+      if(w>max||h>max){ const r=Math.min(max/w,max/h); w=Math.round(w*r); h=Math.round(h*r); }
+      const c=document.createElement("canvas"); c.width=w; c.height=h;
+      c.getContext("2d").drawImage(img,0,0,w,h);
+      pendingImage=c.toDataURL("image/jpeg",CONFIG.JPEG_QUALITY);
+      $("pPreview").src=pendingImage; $("pPreview").classList.add("show");
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveProduct(){
+  const name=$("pName").value.trim();
+  let cat=$("pCategory").value;
+  if(cat==="__new__") cat=$("pNewCat").value.trim();
+  const price=parseFloat($("pPrice").value);
+  if(!name){ $("prodErr").textContent="Add a product name."; return; }
+  if(!cat){ $("prodErr").textContent="Pick or type a category."; return; }
+  if(isNaN(price)||price<0){ $("prodErr").textContent="Add a valid price."; return; }
+
+  if(editingId){
+    const p=products.find(x=>x.id===editingId);
+    p.name=name; p.category=cat; p.price=price; if(pendingImage) p.image=pendingImage;
+  }else{
+    const id=products.length?Math.max(...products.map(p=>p.id))+1:1;
+    products.push({id,name,category:cat,price,image:pendingImage||""});
+  }
+  save(); $("prodOverlay").classList.remove("show");
+  activeFilter="All"; renderFilters(); renderGrid();
+}
+
+function removeProduct(id){
+  const p=products.find(x=>x.id===id);
+  if(!confirm(`Delete "${p?p.name:"this item"}"?`)) return;
+  products=products.filter(x=>x.id!==id);
+  save(); renderFilters(); renderGrid();
+}
+
+/* ===================================================================
+   Export / import
+   =================================================================== */
+$("exportBtn").onclick=()=>{
+  const blob=new Blob([JSON.stringify(products,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="cheche-catalog.json"; a.click();
+  URL.revokeObjectURL(a.href);
+};
+$("importBtn").onclick=()=>$("importFile").click();
+$("importFile").onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(!Array.isArray(data)) throw 0;
+      products=data; save(); activeFilter="All"; renderFilters(); renderGrid();
+      alert("Imported "+data.length+" products.");
+    }catch(err){ alert("That file isn't a valid catalog export."); }
+    $("importFile").value="";
+  };
+  r.readAsText(f);
+};
+
+/* ===================================================================
+   Pull the published catalog into your editable draft
+   =================================================================== */
+$("syncBtn").onclick=()=>{
+  if(!published || !published.length){
+    alert("No published catalog found yet.\n\nAdd your products, Export, then commit the file as \""+
+          CONFIG.CATALOG_URL+"\" in your repo. After that, Sync pulls it back for editing.");
+    return;
+  }
+  if(!confirm("Replace your working draft with the published catalog ("+published.length+" items)?")) return;
+  products = published.map(p=>({...p}));
+  save(); activeFilter="All"; renderFilters(); renderGrid();
+};
+
+/* ===================================================================
+   Init
+   =================================================================== */
+async function fetchPublished(){
+  try{
+    const res = await fetch(CONFIG.CATALOG_URL, {cache:"no-store"});
+    if(!res.ok) throw 0;
+    const data = await res.json();
+    if(Array.isArray(data)) published = data;
+  }catch(e){
+    // File not committed yet, or opened directly via file:// — fall back to the local draft.
+    published = null;
+  }
+}
+
+(async function init(){
+  load();                  // local draft (this browser), seeded on first run
+  await fetchPublished();  // shared catalog every visitor sees
+  renderFilters(); renderGrid();
+})();
+</script>
+</body>
+</html>
