@@ -102,6 +102,16 @@
   .newcat{display:none;margin-top:8px}.newcat.show{display:block}
   footer{text-align:center;padding:26px 18px 40px;color:var(--muted);font-size:12.5px}
   footer a{color:var(--plum)}
+  .featured{max-width:1120px;margin:26px auto 0;padding:0 18px;text-align:center}
+  .featured-title{font-family:var(--serif);font-weight:400;font-size:20px;color:var(--wine);
+    margin:0 0 14px;position:relative}
+  .featured-title::before,.featured-title::after{content:"";position:absolute;top:50%;width:38px;
+    height:1px;background:var(--line)}
+  .featured-title::before{left:12px}.featured-title::after{right:12px}
+  .featured-wrap{display:grid;gap:18px;justify-content:center}
+  .featured-wrap .fb-post{max-width:100%}
+  .featured-wrap .fb-embed{max-width:100%;overflow:hidden;border-radius:10px}
+  .featured-wrap .fb-embed iframe{max-width:100%}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -123,6 +133,12 @@
   <button class="abtn ghost" id="lockNow">Lock</button>
   <input type="file" id="importFile" accept="application/json" hidden>
 </div>
+
+<div id="fb-root"></div>
+<section class="featured" id="featured" hidden>
+  <h2 class="featured-title">&#10024; Featured</h2>
+  <div class="featured-wrap" id="featuredWrap"></div>
+</section>
 
 <div class="controls" id="controls"></div>
 <div class="grid" id="grid"></div>
@@ -192,6 +208,15 @@ const CONFIG = {
   MESSENGER: "chechecabalidaonlineshop", // m.me/<this> — confirmed page username
   DEFAULT_PASSWORD: "cheche2025",       // first-run password — change it in the panel!
   CATALOG_URL: "cheche-catalog.json",   // committed file every visitor loads on startup
+
+  // Facebook posts to feature at the top of the shop (shows up to 3 across).
+  // Accepts a PUBLIC post URL (resizes nicely on phones) OR a full <iframe…> embed code.
+  FEATURED_POSTS: [
+    "https://www.facebook.com/permalink.php?story_fbid=pfbid02Fy92kmj51keAwAE8zRacrvNhGP1XTWkytPUFhdKZaa8WpS1SZVpssv8J6yQrDjtol&id=61564275938442"
+    // , "POST_URL_2"   // ← remove the // and paste a 2nd public post URL
+    // , "POST_URL_3"   // ← remove the // and paste a 3rd public post URL
+  ],
+
   MAX_IMAGE_PX: 900,                    // photos downscaled to this longest edge
   JPEG_QUALITY: 0.82
 };
@@ -485,6 +510,45 @@ $("syncBtn").onclick=()=>{
 };
 
 /* ===================================================================
+   Featured Facebook posts (official embed — credits the original page)
+   =================================================================== */
+let fbRequested = false;
+function loadFBSDK(){
+  if(window.FB){ FB.XFBML.parse($("featuredWrap")); return; }
+  if(fbRequested) return; fbRequested = true;
+  const s=document.createElement("script");
+  s.async=true; s.defer=true; s.crossOrigin="anonymous";
+  s.src="https://connect.facebook.net/en_US/sdk.js#xfbml=1&version=v19.0";
+  document.body.appendChild(s);
+}
+function renderFeatured(){
+  const items=(CONFIG.FEATURED_POSTS||[]).map(s=>(s||"").trim())
+                .filter(s=>s && !s.includes("PASTE_") && !s.includes("POST_URL_"));
+  const sec=$("featured"), wrap=$("featuredWrap");
+  if(!items.length){ sec.hidden=true; return; }
+  sec.hidden=false;
+
+  // 3 across on desktop, 2 on tablet, 1 on phone — but never more columns than posts.
+  const cw=Math.min(1100, Math.max(300, document.body.clientWidth-40));
+  let cols = cw>=1000 ? 3 : cw>=680 ? 2 : 1;
+  cols=Math.min(cols, items.length);
+  const gap=18;
+  let w=Math.floor((cw - gap*(cols-1))/cols);
+  w=Math.max(300, Math.min(500, w));
+  wrap.style.gridTemplateColumns=`repeat(${cols}, max-content)`;
+
+  let needSDK=false;
+  wrap.innerHTML = items.map(item=>{
+    if(item.toLowerCase().startsWith("<iframe")){
+      return `<div class="fb-embed">${item}</div>`;   // use FB's code as-is
+    }
+    needSDK=true;
+    return `<div class="fb-post" data-href="${item}" data-width="${w}"></div>`;
+  }).join("");
+  if(needSDK) loadFBSDK();
+}
+
+/* ===================================================================
    Init
    =================================================================== */
 async function fetchPublished(){
@@ -503,6 +567,7 @@ async function fetchPublished(){
   load();                  // local draft (this browser), seeded on first run
   await fetchPublished();  // shared catalog every visitor sees
   renderFilters(); renderGrid();
+  renderFeatured();
 })();
 </script>
 </body>
