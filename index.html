@@ -133,6 +133,7 @@
 <div class="adminbar" id="adminbar">
   <button class="abtn primary" id="addBtn">+ Add product</button>
   <button class="abtn" id="featBtn">Featured posts</button>
+  <button class="abtn" id="mmBtn">Messenger link</button>
   <button class="abtn" id="syncBtn">Sync from published</button>
   <button class="abtn" id="exportBtn">Export catalog</button>
   <button class="abtn" id="importBtn">Import catalog</button>
@@ -224,6 +225,23 @@
   </div>
 </div>
 
+<!-- Messenger link modal -->
+<div class="overlay" id="mmOverlay">
+  <div class="modal">
+    <h2>Messenger link</h2>
+    <p class="sub">Where the <b>Order on Messenger</b> buttons send customers. Enter your page username or m.me link.</p>
+    <label>Username or m.me link</label>
+    <input type="text" id="mmInput" placeholder="chechecabalidaonlineshop  or  https://m.me/chechecabalidaonlineshop">
+    <div class="filehint" id="mmPreview"></div>
+    <div class="err" id="mmErr"></div>
+    <p class="sub" style="margin:14px 0 0">Publishes with your catalog when you <b>Export</b>.</p>
+    <div class="modal-actions">
+      <button class="cancel" id="mmCancel">Cancel</button>
+      <button class="save" id="mmSave">Save</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ===================================================================
    CONFIG
@@ -249,6 +267,7 @@ const CONFIG = {
 const LS_PRODUCTS = "cheche_products_v1";
 const LS_PWHASH   = "cheche_pwhash_v1";
 const LS_FEATURED = "cheche_featured_v1";
+const LS_MESSENGER = "cheche_messenger_v1";
 
 /* Seed shown on first ever load (no saved data yet). */
 const SEED = [
@@ -264,13 +283,22 @@ let products = [];       // your local working draft (saved in this browser)
 let published = null;    // the committed catalog every visitor sees
 let featuredDraft = [];      // your editable list of featured posts
 let featuredPublished = null; // featured list inside the committed catalog
+let messengerDraft = "";      // your editable Messenger target
+let messengerPublished = null;// Messenger target inside the committed catalog
 let unlocked = false;
 let activeFilter = "All";
 let editingId = null;
 let pendingImage = "";   // data URI of the photo being added/edited
 
 const $ = id => document.getElementById(id);
-document.getElementById("fbFooter").href = "https://m.me/" + CONFIG.MESSENGER;
+
+// Messenger target shown: your draft while unlocked, the published one otherwise.
+function messenger(){
+  const v = unlocked ? messengerDraft : (messengerPublished || messengerDraft);
+  return v || CONFIG.MESSENGER;
+}
+function mmeBase(){ return "https://m.me/" + messenger(); }
+function renderFooter(){ $("fbFooter").href = mmeBase(); }
 
 // What the grid shows: your draft while unlocked, the published catalog otherwise.
 function current(){ return unlocked ? products : (published || products); }
@@ -290,6 +318,22 @@ function loadFeatured(){
   if(!featuredDraft){ featuredDraft = (CONFIG.FEATURED_POSTS||[]).slice(); saveFeatured(); }
 }
 function saveFeatured(){ localStorage.setItem(LS_FEATURED, JSON.stringify(featuredDraft)); }
+
+function loadMessenger(){
+  messengerDraft = localStorage.getItem(LS_MESSENGER) || CONFIG.MESSENGER;
+}
+function saveMessenger(){ localStorage.setItem(LS_MESSENGER, messengerDraft); }
+
+// Accept a username, an m.me link, or a facebook page link → return a clean handle.
+function normalizeMessenger(input){
+  let s=(input||"").trim();
+  if(!s) return null;
+  s=s.replace(/^https?:\/\//i,"");
+  s=s.replace(/^m\.me\//i,"");
+  s=s.replace(/^(www\.)?facebook\.com\//i,"");
+  s=s.split(/[?#/]/)[0];        // drop any query/hash/trailing path
+  return s||null;
+}
 function placeholder(){
   return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
    `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'>
@@ -342,7 +386,7 @@ function renderGrid(){
     return;
   }
   list.forEach(p=>{
-    const order="https://m.me/"+CONFIG.MESSENGER+"?text="+
+    const order=mmeBase()+"?text="+
       encodeURIComponent("Hi! I'm interested in: "+p.name);
     const card=document.createElement("div");
     card.className="card";
@@ -508,7 +552,7 @@ function removeProduct(id){
    Export / import
    =================================================================== */
 $("exportBtn").onclick=()=>{
-  const payload={ products, featured: featuredDraft };
+  const payload={ products, featured: featuredDraft, messenger: messengerDraft };
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob); a.download="cheche-catalog.json"; a.click();
@@ -526,8 +570,9 @@ $("importFile").onchange=e=>{
       }else if(data && Array.isArray(data.products)){  // new format: products + featured
         products=data.products;
         if(Array.isArray(data.featured)){ featuredDraft=data.featured; saveFeatured(); }
+        if(data.messenger){ messengerDraft=data.messenger; saveMessenger(); }
       }else throw 0;
-      save(); activeFilter="All"; renderFilters(); renderGrid(); renderFeatured();
+      save(); activeFilter="All"; renderFilters(); renderGrid(); renderFeatured(); renderFooter();
       alert("Imported "+products.length+" products.");
     }catch(err){ alert("That file isn't a valid catalog export."); }
     $("importFile").value="";
@@ -547,7 +592,8 @@ $("syncBtn").onclick=()=>{
   if(!confirm("Replace your working draft with the published catalog ("+published.length+" items)?")) return;
   products = published.map(p=>({...p}));
   if(Array.isArray(featuredPublished)){ featuredDraft = featuredPublished.slice(); saveFeatured(); }
-  save(); activeFilter="All"; renderFilters(); renderGrid(); renderFeatured();
+  if(messengerPublished){ messengerDraft = messengerPublished; saveMessenger(); }
+  save(); activeFilter="All"; renderFilters(); renderGrid(); renderFeatured(); renderFooter();
 };
 
 /* ===================================================================
@@ -640,6 +686,30 @@ function addFeatured(){
   renderFeatList(); renderFeatured();
 }
 
+/* ----- Messenger link admin modal ----- */
+$("mmBtn").onclick    = openMessengerModal;
+$("mmCancel").onclick = ()=> $("mmOverlay").classList.remove("show");
+$("mmInput").oninput  = ()=>{
+  const h=normalizeMessenger($("mmInput").value);
+  $("mmPreview").textContent = h ? "Buttons will open:  m.me/"+h : "";
+};
+$("mmSave").onclick   = saveMessengerLink;
+
+function openMessengerModal(){
+  $("mmErr").textContent="";
+  $("mmInput").value=messengerDraft;
+  $("mmPreview").textContent="Buttons will open:  m.me/"+messengerDraft;
+  $("mmOverlay").classList.add("show");
+  setTimeout(()=>$("mmInput").focus(),50);
+}
+function saveMessengerLink(){
+  const h=normalizeMessenger($("mmInput").value);
+  if(!h){ $("mmErr").textContent="Enter a username or m.me link."; return; }
+  messengerDraft=h; saveMessenger();
+  $("mmOverlay").classList.remove("show");
+  renderFooter(); renderGrid();   // update every Order button
+}
+
 /* ===================================================================
    Init
    =================================================================== */
@@ -653,19 +723,21 @@ async function fetchPublished(){
     }else if(data && Array.isArray(data.products)){  // new format: products + featured
       published = data.products;
       featuredPublished = Array.isArray(data.featured) ? data.featured : null;
+      messengerPublished = data.messenger || null;
     }
   }catch(e){
     // File not committed yet, or opened directly via file:// — fall back to the local draft.
-    published = null; featuredPublished = null;
+    published = null; featuredPublished = null; messengerPublished = null;
   }
 }
 
 (async function init(){
   load();                  // local product draft (this browser), seeded on first run
   loadFeatured();          // local featured draft, seeded from CONFIG on first run
-  await fetchPublished();  // shared catalog + featured every visitor sees
+  loadMessenger();         // local Messenger target, seeded from CONFIG on first run
+  await fetchPublished();  // shared catalog + featured + messenger every visitor sees
   renderFilters(); renderGrid();
-  renderFeatured();
+  renderFeatured(); renderFooter();
 })();
 </script>
 </body>
